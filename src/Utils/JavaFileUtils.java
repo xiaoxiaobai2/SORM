@@ -5,7 +5,6 @@ import bean.Configuration;
 import bean.JavaFieldGetSet;
 import bean.TableInfo;
 import core.DBManger;
-import core.MySqlTypeCovertor;
 import core.TypeConvertor;
 
 import java.io.BufferedWriter;

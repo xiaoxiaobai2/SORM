@@ -3,15 +3,12 @@ package core;
 import Utils.JDBCUtils;
 import Utils.ReflectUtils;
 import bean.ColumnInfo;
+import bean.PoTable;
 import bean.TableInfo;
 import com.zhanghao.po.Emp;
 
-import java.io.BufferedWriter;
 import java.lang.reflect.Field;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +38,7 @@ public class MySqlQuery implements Query {
             stringBuffer.append("?,");
         }
         stringBuffer.setCharAt(stringBuffer.length()-1,')');
-        excuteSql(stringBuffer.toString(),fieldValueList.toArray());
+        executeSql(stringBuffer.toString(),fieldValueList.toArray());
     }
 
     @Override
@@ -50,7 +47,7 @@ public class MySqlQuery implements Query {
         TableInfo tableInfo=TableContext.poClassTableInfo.get(clazz);
         ColumnInfo onlyPriKey=tableInfo.getOnlyPriKey();
         String sql="delete from "+tableInfo.getTableName()+" where "+onlyPriKey.getName()+"=?";
-        excuteSql(sql,new Object[]{id});
+        executeSql(sql,new Object[]{id});
     }
 
     @Override
@@ -84,31 +81,85 @@ public class MySqlQuery implements Query {
         sb.append("where ");
         sb.append(columnInfo.getName()+"=?");
 
-        return excuteSql(sb.toString(),fieldValueList.toArray());
+        return executeSql(sb.toString(),fieldValueList.toArray());
     }
 
     @Override
-    public List queryRows(String sql, Object object, String[] params) {
+    public List queryRows(String sql, Class object, Object[] params) {
+        List objectList=null;
+        Connection connection=DBManger.getConn();
+        PreparedStatement ps=null;
+        ResultSet set=null;
+        try {
+            ps=connection.prepareStatement(sql);
+            JDBCUtils.handleParams(ps,params);
+            System.out.println("组合后的SQL语句："+ps.toString());
+            set=ps.executeQuery();
+            ResultSetMetaData rsmd=set.getMetaData();
+            while (set.next()){
+                if (objectList==null){
+                    objectList=new ArrayList();
+                }
+                Object obj=object.newInstance();
+                for (int i = 0; i < rsmd.getColumnCount(); i++) {
+                    String columnName=rsmd.getColumnLabel(i+1);
+                    Object columnValue=set.getObject(i+1);
+                    if (columnValue!=null)
+                        ReflectUtils.invokeSet(obj,columnName,columnValue);
+                }
+                objectList.add(obj);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        }finally {
+            DBManger.close(connection,ps,set);
+        }
+        return objectList;
+    }
+
+    @Override
+    public Object queryUniqueRow(String sql, Class object, Object[] params) {
+        List list=queryRows(sql,object,params);
+        return (list==null)?null:list.get(0);
+    }
+
+    @Override
+    public Object queryValue(String sql, Object[] params) {
+        Object value=null;
+        Connection connection=DBManger.getConn();
+        PreparedStatement ps=null;
+        ResultSet set=null;
+        try {
+            ps=connection.prepareStatement(sql);
+            JDBCUtils.handleParams(ps,params);
+            System.out.println("组合后的SQL语句："+ps.toString());
+            set=ps.executeQuery();
+            while (set.next()){
+                value=set.getObject(1);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }finally {
+            DBManger.close(connection,ps,set);
+        }
+        return value;
+    }
+
+    @Override
+    public Number queryNumber(String sql, Object[] params) {
+        Object obj=queryValue(sql,params);
+        if(obj instanceof Number){
+            return (Number)obj;
+        }
         return null;
     }
 
     @Override
-    public Object[] queryUniqueRow(String sql, Object object, String[] params) {
-        return new Object[0];
-    }
-
-    @Override
-    public Object queryValue(String sql, Object object, String[] params) {
-        return null;
-    }
-
-    @Override
-    public Number queryNumber(String sql, Object object, String[] params) {
-        return null;
-    }
-
-    @Override
-    public int excuteSql(String sql, Object[] params) {
+    public int executeSql(String sql, Object[] params) {
         Connection connection=DBManger.getConn();
         PreparedStatement ps=null;
         ResultSet set=null;
@@ -116,7 +167,6 @@ public class MySqlQuery implements Query {
         try {
             ps=connection.prepareStatement(sql);
             JDBCUtils.handleParams(ps,params);
-            System.out.println(ps.toString());
             total=ps.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -127,10 +177,25 @@ public class MySqlQuery implements Query {
     }
 
     public static void main(String[] args) {
-        Emp emp=new Emp();
-        emp.setId(2);
-        emp.setDepartment("测试");
-        emp.setSalary(99999.0);
-        new MySqlQuery().update(emp,new String[]{"salary"});
+//        Emp emp=new Emp();
+//        emp.setId(2);
+//        emp.setDepartment("测试");
+//        emp.setSalary(99999.0);
+//        new MySqlQuery().update(emp,new String[]{"salary"});
+
+//        List<Emp> list=new MySqlQuery().queryRows("select name,salary from emp where salary>?",Emp.class,new Object[]{10000});
+//        for (Emp e:list){
+//            System.out.println(e.getName());
+//            System.out.println(e.getSalary());
+//        }
+
+//        //复杂的查询语句，需要先封装一个javabean
+//        String sql="SELECT emp.id empId,emp.name,emp.salary,emp.department,student.ID stuID FROM emp "+
+//                "JOIN student on emp.name=student.Name";
+//        List<PoTable> list=new MySqlQuery().queryRows(sql,PoTable.class,null);
+//        for (PoTable e:list){
+//            System.out.println(e.getName()+"--"+e.getSalary()+"--"+e.getEmpId()+"--"+e.getStuId());
+//        }
+        System.out.println(new MySqlQuery().queryValue("select count(*) from emp where salary>?",new Object[]{10000}));
     }
 }

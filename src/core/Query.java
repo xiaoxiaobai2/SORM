@@ -42,7 +42,7 @@ public interface Query {
      * @param params 按要求查找
      * @return  返回查找的结果，封装到List里
      */
-    List queryRows(String sql,Object object,String[] params);
+    List queryRows(String sql,Class object,Object[] params);
 
     /**
      * 查询单行记录
@@ -51,25 +51,23 @@ public interface Query {
      * @param params 要查询的参数
      * @return 换回查询结果过封装到Object中
      */
-    Object[] queryUniqueRow(String sql,Object object,String[] params);
+    Object queryUniqueRow(String sql,Class object,Object[] params);
 
     /**
      * 查询一个结果
      * @param sql 查询语句
-     * @param object
      * @param params 要查询的参数
      * @return 换回查询的结果对象
      */
-    Object queryValue(String sql,Object object,String[] params);
+    Object queryValue(String sql,Object[] params);
 
     /**
      * 查询一个数字
      * @param sql 查询语句
-     * @param object
      * @param params 要查询的参数
      * @return 换回查询的数字
      */
-    Number queryNumber(String sql,Object object,String[] params);
+    Number queryNumber(String sql,Object[] params);
 
     /**
      * 执行sql语句
@@ -77,5 +75,5 @@ public interface Query {
      * @param params
      * @return
      */
-    int excuteSql(String sql,Object[] params);
+    int executeSql(String sql, Object[] params);
 }
